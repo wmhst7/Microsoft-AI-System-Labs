@@ -28,10 +28,9 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-# This file has been changed for education and teaching purpose
-
 from __future__ import print_function
 import argparse
+from typing import Any
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -39,34 +38,51 @@ import torch.optim as optim
 from torchvision import datasets, transforms
 from torch.optim.lr_scheduler import StepLR
 
+from six.moves import urllib
+opener = urllib.request.build_opener()
+opener.addheaders = [('User-agent', 'Mozilla/5.0')]
+urllib.request.install_opener(opener)
+
+'''
+    Use for backward in My Linear Function
+    output = input @ weights
+    lets say y = x @ w
+    dy/dx = wT
+    dy/dw = x
+    So
+    grad_output = dL/dy
+    grad_x = grad_output * w.t
+    grad_w = x.t * grad_output
+'''
 class myLinearFunction(torch.autograd.Function):
-    # Note that both forward and backward are @staticmethods
     @staticmethod
     def forward(ctx, input, weight):
         ctx.save_for_backward(input, weight)
-        output = input.mm(weight.t())
+        output = input @ weight
         return output
-        
+
     @staticmethod
     def backward(ctx, grad_output):
         input, weight = ctx.saved_tensors
         grad_input = grad_weight = None
-        #if ctx.needs_input_grad[0]:
-        grad_input = grad_output.mm(weight)
-        #if ctx.needs_input_grad[1]:
-        grad_weight = grad_output.t().mm(input)
+        if ctx.needs_input_grad[0]:
+            grad_input = grad_output @ weight.t()
+        if ctx.needs_input_grad[1]:
+            grad_weight = input.t() @ grad_output
         return grad_input, grad_weight
 
-class myLinear(nn.Module):
-    def __init__(self, input_features, output_features):
-        super(myLinear, self).__init__()
-        self.input_features = input_features
-        self.output_features = output_features
-        self.weight = nn.Parameter(torch.Tensor(output_features, input_features))
-        self.weight.data.uniform_(-0.1, 0.1)
-    
+
+class MyLinear(nn.Module):
+    def __init__(self, input_num, output_num):
+        super().__init__()
+        self.input_num = input_num
+        self.output_num = output_num
+        self.weight = nn.Parameter(torch.Tensor(input_num, output_num))
+        self.weight.data.uniform_(-0.1, 0.1) # initialization
+
     def forward(self, input):
         return myLinearFunction.apply(input, self.weight)
+
 
 class Net(nn.Module):
     def __init__(self):
@@ -76,8 +92,7 @@ class Net(nn.Module):
         self.dropout1 = nn.Dropout2d(0.25)
         self.dropout2 = nn.Dropout2d(0.5)
         self.fc1 = nn.Linear(9216, 128)
-        # self.fc2 = nn.Linear(128, 10)
-        self.fc2 = myLinear(128, 10)
+        self.fc2 = MyLinear(128, 10)
 
     def forward(self, x):
         x = self.conv1(x)
@@ -128,6 +143,14 @@ def test(model, device, test_loader):
         test_loss, correct, len(test_loader.dataset),
         100. * correct / len(test_loader.dataset)))
 
+# Add profile function
+def profile(model, device, train_loader):
+    dataiter = iter(train_loader)
+    data, target = next(dataiter)
+    data, target = data.to(device), target.to(device)
+    with torch.autograd.profiler.profile(use_cuda=False) as prof:
+        model(data[0].reshape(1,1,28,28))
+    print(prof)
 
 def main():
     # Training settings
@@ -176,14 +199,19 @@ def main():
     model = Net().to(device)
     optimizer = optim.Adadelta(model.parameters(), lr=args.lr)
 
-    scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
-    for epoch in range(1, args.epochs + 1):
-        train(args, model, device, train_loader, optimizer, epoch)
-        test(model, device, test_loader)
-        scheduler.step()
+    # profile model
+    print("Start profiling...")
+    profile(model, device, train_loader)
+    print("Finished profiling.")
 
-    if args.save_model:
-        torch.save(model.state_dict(), "mnist_cnn.pt")
+    # scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
+    # for epoch in range(1, args.epochs + 1):
+    #     train(args, model, device, train_loader, optimizer, epoch)
+    #     test(model, device, test_loader)
+    #     scheduler.step()
+
+    # if args.save_model:
+    #     torch.save(model.state_dict(), "mnist_cnn.pt")
 
 
 if __name__ == '__main__':
