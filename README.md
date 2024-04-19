@@ -1,7 +1,14 @@
 # Microsoft AI Sys Course
 
-[Labs](https://www.notion.so/Labs-c7164d2ef6f5443e972d4aadbbd2eecc?pvs=21)
+课程链接： https://github.com/microsoft/AI-System/tree/main 
 
+## 介绍
+
+本课程的中文名称设定为 人工智能系统，主要讲解支持人工智能的计算机系统设计，对应的英文课程名称为 System for AI。本课程中将交替使用以下词汇：人工智能系统，AI-System 和 System for AI。
+
+本课程为微软人工智能教育与共建社区中规划的人工智能相关教程之一，在A-基础教程模块下，课程编号和名称为 A6-人工智能系统。
+
+欢迎访问微软人工智能教育与共建社区的A-基础教程模块访问更多相关内容。
 
 ---
 
